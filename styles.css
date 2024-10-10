@@ -66,7 +66,8 @@ footer a{
     text-decoration: none;
     background-color: #c9bf06;
     border: none;
-    margin-right: 10px;
+    margin-bottom: 2px;
+    margin-top: 2px;
 }
 .btn-excluir{
     font-style: oblique;
@@ -78,5 +79,8 @@ footer a{
     text-decoration: none;
     background-color: #ff0000;
     border: none;
-    margin-right: 10px;
+    margin-bottom: 1.5px;
+    margin-top: 1.5px;
+    margin-left: 2px;
+    margin-right: 2px;
 }
