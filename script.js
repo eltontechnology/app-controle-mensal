@@ -1,16 +1,26 @@
-let registrosFinanceiros = [];
+let transacoes = [];
 let mesAtual = new Date().getMonth();
 let anoAtual = new Date().getFullYear();
 
 document.addEventListener('DOMContentLoaded', () => {
-    carregarRegistros();
-    exibirRegistros();
-    document.getElementById('mes-atual').textContent = `${obterNomeMes(mesAtual)} ${anoAtual}`;
+    inicializarDatepicker();
+    carregarTransacoes();
+    atualizarTituloMes();
+    exibirTransacoes();
 
-    document.getElementById('adicionar').addEventListener('click', adicionarRegistro);
+    document.getElementById('adicionar').addEventListener('click', adicionarTransacao);
     document.getElementById('mes-anterior').addEventListener('click', () => mudarMes(-1));
     document.getElementById('mes-proximo').addEventListener('click', () => mudarMes(1));
 });
+
+function inicializarDatepicker() {
+    $('.datepicker').datepicker({
+        format: 'dd/mm/yyyy',
+        language: 'pt-BR',
+        autoclose: true,
+        todayHighlight: true
+    });
+}
 
 function obterNomeMes(mes) {
     const meses = [
@@ -20,21 +30,25 @@ function obterNomeMes(mes) {
     return meses[mes];
 }
 
-function adicionarRegistro() {
-    const dataRegistro = document.getElementById('data').value;
-    const descricao = document.getElementById('descricao').value;
+function atualizarTituloMes() {
+    document.getElementById('mes-atual').textContent = `${obterNomeMes(mesAtual)} ${anoAtual}`;
+}
+
+function adicionarTransacao() {
+    const dataTransacao = document.getElementById('data').value;
+    const descricao = document.getElementById('descricao').value.trim();
     const valor = parseFloat(document.getElementById('valor').value);
     const tipo = document.querySelector('input[name="tipo"]:checked').value;
 
-    if (!dataRegistro || !descricao || isNaN(valor) || valor <= 0) {
+    if (!dataTransacao || !descricao || isNaN(valor) || valor <= 0) {
         alert('Por favor, preencha todos os campos corretamente.');
         return;
     }
 
-    const dataFormatada = new Date(dataRegistro);
-    
-    const registro = {
-        data: dataFormatada.toLocaleDateString(),
+    const dataFormatada = new Date(dataTransacao.split('/').reverse().join('/')); // Converter para YYYY-MM-DD
+
+    const transacao = {
+        data: dataFormatada.toLocaleDateString('pt-BR'),
         descricao,
         valor,
         tipo,
@@ -42,9 +56,9 @@ function adicionarRegistro() {
         ano: dataFormatada.getFullYear()
     };
 
-    registrosFinanceiros.push(registro);
-    salvarRegistros();
-    exibirRegistros();
+    transacoes.push(transacao);
+    salvarTransacoes();
+    exibirTransacoes();
     limparCampos();
 }
 
@@ -57,25 +71,31 @@ function mudarMes(direcao) {
         mesAtual = 0;
         anoAtual++;
     }
-    document.getElementById('mes-atual').textContent = `${obterNomeMes(mesAtual)} ${anoAtual}`;
-    exibirRegistros();
+    atualizarTituloMes();
+    exibirTransacoes();
 }
 
-function exibirRegistros() {
+function exibirTransacoes() {
     const historicosMeses = document.getElementById('historicos-meses');
-    historicosMeses.innerHTML = '';
+    historicosMeses.innerHTML = ''; // Limpa o conteúdo anterior
 
-    const registrosFiltrados = registrosFinanceiros.filter(registro => registro.mes === mesAtual && registro.ano === anoAtual);
+    const transacoesFiltradas = transacoes.filter(transacao => transacao.mes === mesAtual && transacao.ano === anoAtual);
 
-    if (registrosFiltrados.length === 0) {
-        historicosMeses.innerHTML = `<p class="text-light"><h5>Nenhum registro encontrado para ${obterNomeMes(mesAtual)} ${anoAtual}.</p>`;
+    if (transacoesFiltradas.length === 0) {
+        historicosMeses.innerHTML = `<p class="text-light">Nenhuma transação encontrada para ${obterNomeMes(mesAtual)} ${anoAtual}.</p>`;
         return;
     }
 
+    const tabela = criarTabela(transacoesFiltradas);
+    historicosMeses.appendChild(tabela);
+    atualizarTotais(transacoesFiltradas);
+}
+
+function criarTabela(transacoesFiltradas) {
     const tabela = document.createElement('div');
     tabela.classList.add('table-container');
     tabela.innerHTML = `
-        <table class="table table-dark">
+        <table class="table table-dark table-hover">
             <thead>
                 <tr>
                     <th>Data</th>
@@ -86,60 +106,66 @@ function exibirRegistros() {
                 </tr>
             </thead>
             <tbody>
-            ${registrosFiltrados.map((registro, index) => `
-                <tr class="${registro.tipo === 'entrada' ? 'historico-entrada' : 'historico-saida'}">
-                    <td>${registro.data}</td>
-                    <td>${registro.descricao}</td>
-                    <td>R$ ${registro.valor.toFixed(2)}</td>
-                    <td>${registro.tipo.charAt(0).toUpperCase() + registro.tipo.slice(1)}</td>
-                    <td>
-                        <button class="btn btn-warning btn-editar" onclick="editarRegistro(${index})">Editar</button>
-                        <button class="btn btn-danger btn-excluir" onclick="confirmarExcluirRegistro(${index})">Excluir</button>
-                    </td>
-                </tr>
-            `).join('')}
+                ${transacoesFiltradas.map((transacao, index) => `
+                    <tr class="${transacao.tipo === 'entrada' ? 'historico-entrada' : 'historico-saida'}">
+                        <td>${transacao.data}</td>
+                        <td>${transacao.descricao}</td>
+                        <td>R$ ${transacao.valor.toFixed(2)}</td>
+                        <td>${transacao.tipo.charAt(0).toUpperCase() + transacao.tipo.slice(1)}</td>
+                        <td>
+                            <button class="btn btn-warning btn-sm mr-2" onclick="editarTransacao(${index})">Editar</button>
+                            <button class="btn btn-danger btn-sm" onclick="confirmarExcluirTransacao(${index})">Excluir</button>
+                        </td>
+                    </tr>
+                `).join('')}
             </tbody>
         </table>
     `;
-    historicosMeses.appendChild(tabela);
-
-    atualizarTotais(registrosFiltrados);
+    return tabela;
 }
 
-function editarRegistro(index) {
-    const registro = registrosFinanceiros[index];
-    document.getElementById('data').value = registro.data;
-    document.getElementById('descricao').value = registro.descricao;
-    document.getElementById('valor').value = registro.valor;
-    document.querySelector(`input[name="tipo"][value="${registro.tipo}"]`).checked = true;
+function editarTransacao(index) {
+    const transacao = transacoes[index];
+    const dataFormatada = new Date(transacao.data.split('/').reverse().join('/')); // Converter para YYYY-MM-DD
 
-    excluirRegistro(index);
+    // Preencher os campos do formulário com os dados da transação
+    $('.datepicker').datepicker('update', dataFormatada);
+    document.getElementById('descricao').value = transacao.descricao;
+    document.getElementById('valor').value = transacao.valor;
+    document.querySelector(`input[name="tipo"][value="${transacao.tipo}"]`).checked = true;
+
+    // Remove a transação atual antes de editar
+    excluirTransacao(index);
 }
 
-function confirmarExcluirRegistro(index) {
-    const confirmar = confirm('Você tem certeza que deseja excluir este registro?');
+function confirmarExcluirTransacao(index) {
+    const confirmar = confirm('Você tem certeza que deseja excluir esta transação?');
     if (confirmar) {
-        excluirRegistro(index);
+        excluirTransacao(index);
     }
 }
 
-function excluirRegistro(index) {
-    registrosFinanceiros.splice(index, 1);
-    salvarRegistros();
-    exibirRegistros();
+function excluirTransacao(index) {
+    transacoes.splice(index, 1);
+    salvarTransacoes();
+    exibirTransacoes();
 }
 
-function atualizarTotais(registrosFiltrados) {
-    const totalEntradas = registrosFiltrados.reduce((acc, registro) => acc + (registro.tipo === 'entrada' ? registro.valor : 0), 0);
-    const totalSaidas = registrosFiltrados.reduce((acc, registro) => acc + (registro.tipo === 'saida' ? registro.valor : 0), 0);
+function atualizarTotais(transacoesFiltradas) {
+    const totalEntradas = transacoesFiltradas
+        .filter(transacao => transacao.tipo === 'entrada')
+        .reduce((acc, transacao) => acc + transacao.valor, 0);
+    const totalSaidas = transacoesFiltradas
+        .filter(transacao => transacao.tipo === 'saida')
+        .reduce((acc, transacao) => acc + transacao.valor, 0);
     const saldo = totalEntradas - totalSaidas;
 
     const totaisDiv = document.createElement('div');
     totaisDiv.classList.add('totais');
     totaisDiv.innerHTML = `
-        <h5>Entradas: <span class="valor total-entrada">${formatarValor(totalEntradas)}</span></h5>
-        <h5>Saídas: <span class="valor total-saida">${formatarValor(totalSaidas)}</span></h5>
-        <h3>Saldo: <span class="valor saldo" style="color: ${saldo >= 0 ? '#0877e5' : 'red'};">${formatarValor(saldo)}</span></h3>
+        <h3>Entradas: <span class="valor total-entrada">R$ ${totalEntradas.toFixed(2)}</span></h3>
+        <h3>Saídas: <span class="valor total-saida">R$ ${totalSaidas.toFixed(2)}</span></h3>
+        <h3>Saldo: <span class="valor saldo" style="color: ${saldo >= 0 ? '#00FFFF' : 'red'};">R$ ${saldo.toFixed(2)}</span></h3>
     `;
 
     const container = document.querySelector('.table-container');
@@ -151,19 +177,19 @@ function formatarValor(valor) {
 }
 
 function limparCampos() {
-    document.getElementById('data').value = '';
+    $('.datepicker').datepicker('update', '');
     document.getElementById('descricao').value = '';
     document.getElementById('valor').value = '';
-    document.getElementById('entrada').checked = true;
+    document.querySelector('input[name="tipo"][value="entrada"]').checked = true; // Seleciona entrada por padrão
 }
 
-function salvarRegistros() {
-    localStorage.setItem('registrosFinanceiros', JSON.stringify(registrosFinanceiros));
+function salvarTransacoes() {
+    localStorage.setItem('minhasTransacoes', JSON.stringify(transacoes));
 }
 
-function carregarRegistros() {
-    const registrosSalvos = JSON.parse(localStorage.getItem('registrosFinanceiros'));
-    if (registrosSalvos) {
-        registrosFinanceiros = registrosSalvos;
+function carregarTransacoes() {
+    const transacoesSalvas = JSON.parse(localStorage.getItem('minhasTransacoes'));
+    if (transacoesSalvas) {
+        transacoes = transacoesSalvas;
     }
 }
