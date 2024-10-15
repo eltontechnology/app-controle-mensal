@@ -5,6 +5,11 @@ body {
     color: #ffffff;
 }
 
+/* Título */
+h2{
+    font-size: 5vh;
+}
+
 /* Ajuste no Formulário */
 form#formulario {
     background-color: #1e1e1e;
